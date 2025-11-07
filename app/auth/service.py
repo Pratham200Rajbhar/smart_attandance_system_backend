@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from ..core.security import get_password_hash, verify_password, create_access_token
+from core.security import get_password_hash, verify_password, create_access_token
 from .models import User
 from .schemas import UserCreate, UserLogin
 from typing import Optional
@@ -10,7 +10,6 @@ class AuthService:
     
     @staticmethod
     async def create_user(db: AsyncSession, user_data: UserCreate) -> Optional[User]:
-        """Create a new user."""
         try:
             hashed_password = get_password_hash(user_data.password)
             
@@ -33,7 +32,6 @@ class AuthService:
     
     @staticmethod
     async def authenticate_user(db: AsyncSession, login_data: UserLogin) -> Optional[User]:
-        """Authenticate user and return user object if valid."""
         result = await db.execute(
             select(User).where(User.email == login_data.email)
         )
@@ -46,7 +44,6 @@ class AuthService:
     
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
-        """Get user by email."""
         result = await db.execute(
             select(User).where(User.email == email)
         )
@@ -54,7 +51,6 @@ class AuthService:
     
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
-        """Get user by ID."""
         result = await db.execute(
             select(User).where(User.id == user_id)
         )
@@ -62,5 +58,4 @@ class AuthService:
     
     @staticmethod
     def create_token(user: User) -> str:
-        """Create access token for user."""
         return create_access_token(data={"sub": user.email, "user_id": user.id})

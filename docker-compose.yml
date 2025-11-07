@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: smart_attendance
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: apple
     ports:
       - "5432:5432"
     volumes:
@@ -25,7 +25,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/smart_attendance
+      DATABASE_URL: postgresql+asyncpg://postgres:apple@db:5432/smart_attendance
       JWT_SECRET: your_secret_key_change_this_in_production
       JWT_ALGORITHM: HS256
       JWT_EXPIRE_HOURS: 24

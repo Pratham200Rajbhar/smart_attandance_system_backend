@@ -62,7 +62,29 @@ backend/
    cd new_backend
    ```
 
-2. **Create virtual environment**
+2. **Set up PostgreSQL Database**
+   - Ensure PostgreSQL is installed and running
+   - Create a database named `smart_attendance`
+   - Set PostgreSQL user `postgres` password to `apple`
+   
+   **Quick setup using command line:**
+   ```bash
+   # Create database
+   createdb -h localhost -U postgres smart_attendance
+   
+   # Test connection
+   psql -h localhost -U postgres -d smart_attendance -c "SELECT version();"
+   ```
+
+3. **Automated Setup (Windows)**
+   ```bash
+   # Run the setup script (will install dependencies and seed database)
+   setup.bat
+   ```
+
+4. **Manual Setup**
+   
+   **Create virtual environment**
    ```bash
    python -m venv venv
    
@@ -73,25 +95,17 @@ backend/
    source venv/bin/activate
    ```
 
-3. **Install dependencies**
+   **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Set up PostgreSQL database**
-   - Create a new PostgreSQL database named `smart_attendance`
-   - Update the `.env` file with your database credentials
-
-5. **Configure environment variables**
+   **Seed the database**
    ```bash
-   # Update .env file with your settings
-   DATABASE_URL=postgresql+asyncpg://postgres:your_password@localhost:5432/smart_attendance
-   JWT_SECRET=your_secret_key_change_this_in_production
-   JWT_ALGORITHM=HS256
-   JWT_EXPIRE_HOURS=24
+   python seed_database.py
    ```
 
-6. **Run the application**
+5. **Run the application**
    ```bash
    cd app
    python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000

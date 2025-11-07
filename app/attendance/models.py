@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, LargeBinary, ForeignKey, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from ..database import Base
+from database import Base
 
 class Student(Base):
     __tablename__ = "students"
@@ -10,11 +10,10 @@ class Student(Base):
     student_id = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
-    face_encoding = Column(LargeBinary, nullable=True)  # Store face encoding as bytes
+    face_encoding = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationship with attendance records
     attendance_records = relationship("AttendanceRecord", back_populates="student")
 
 class AttendanceRecord(Base):
@@ -23,8 +22,7 @@ class AttendanceRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
-    status = Column(String, nullable=False)  # "PRESENT", "ABSENT"
-    confidence = Column(Float, nullable=True)  # Face recognition confidence score
+    status = Column(String, nullable=False)
+    confidence = Column(Float, nullable=True)
     
-    # Relationship with student
     student = relationship("Student", back_populates="attendance_records")
