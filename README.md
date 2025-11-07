@@ -1,338 +1,297 @@
-# Smart Attendance System Backend
+# Smart Attendance System - FastAPI Backend
 
-A FastAPI backend for Smart Attendance System with face recognition capabilities.
+A comprehensive FastAPI backend for Smart Attendance System with face recognition capabilities.
 
 ## Features
 
-- **Authentication**: JWT-based authentication with user registration and login
-- **Face Recognition**: OpenCV and face_recognition library for attendance verification
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **API Documentation**: Auto-generated Swagger/OpenAPI documentation
-- **CORS Support**: Cross-origin resource sharing for frontend integration
+✅ **Authentication Module**
+- JWT-based user authentication
+- User registration with role-based access (admin, teacher, student)
+- Protected routes with role validation
+
+✅ **Face Recognition Attendance**
+- Face encoding storage and comparison
+- Real-time attendance marking
+- Confidence-based verification
+- Support for both base64 and file upload
+
+✅ **Admin Management**
+- Student CRUD operations
+- Teacher CRUD operations
+- Face encoding registration for students
+- Admin-only protected endpoints
+
+✅ **Database Integration**
+- PostgreSQL with async SQLAlchemy
+- Comprehensive data models
+- Database migrations support
 
 ## Tech Stack
 
-- FastAPI (Python 3.10+)
-- PostgreSQL (via SQLAlchemy + async engine)
-- JWT authentication (using PyJWT)
-- Face recognition via `face_recognition` library (based on dlib)
-- Pydantic for request/response schemas
-- bcrypt for password hashing
+- **FastAPI** - Modern, fast web framework
+- **PostgreSQL** - Robust relational database
+- **SQLAlchemy** - Async ORM
+- **JWT** - Secure token-based authentication
+- **bcrypt** - Password hashing
+- **face_recognition** - Face detection and recognition
+- **OpenCV** - Image processing
+- **Docker** - Containerization
 
-## Project Structure
-
-```
-backend/
-├── app/
-│    ├── main.py                    # FastAPI application entry point
-│    ├── database.py                # Database configuration
-│    ├── auth/
-│    │    ├── routes.py            # Authentication endpoints
-│    │    ├── models.py            # User database models
-│    │    ├── schemas.py           # Pydantic schemas for auth
-│    │    └── service.py           # Authentication business logic
-│    ├── attendance/
-│    │    ├── routes.py            # Attendance endpoints
-│    │    ├── models.py            # Student/Attendance database models
-│    │    ├── schemas.py           # Pydantic schemas for attendance
-│    │    └── service.py           # Attendance business logic
-│    ├── core/
-│    │    ├── security.py          # JWT and password utilities
-│    │    └── config.py            # Application configuration
-│    └── utils/
-│         └── face_recognition_util.py  # Face recognition utilities
-├── requirements.txt               # Python dependencies
-├── .env                          # Environment variables
-└── README.md                     # This file
-```
-
-## Setup Instructions
+## Installation
 
 ### Prerequisites
 
-- Python 3.10+
-- PostgreSQL database
+- Python 3.11+
+- PostgreSQL
 - Git
 
-### Installation
+### Local Development Setup
 
 1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd new_backend
-   ```
+```bash
+git clone <repository-url>
+cd smart_attendance_system_backend
+```
 
-2. **Set up PostgreSQL Database**
-   - Ensure PostgreSQL is installed and running
-   - Create a database named `smart_attendance`
-   - Set PostgreSQL user `postgres` password to `apple`
-   
-   **Quick setup using command line:**
-   ```bash
-   # Create database
-   createdb -h localhost -U postgres smart_attendance
-   
-   # Test connection
-   psql -h localhost -U postgres -d smart_attendance -c "SELECT version();"
-   ```
+2. **Create virtual environment**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-3. **Automated Setup (Windows)**
-   ```bash
-   # Run the setup script (will install dependencies and seed database)
-   setup.bat
-   ```
+3. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-4. **Manual Setup**
-   
-   **Create virtual environment**
-   ```bash
-   python -m venv venv
-   
-   # On Windows
-   venv\Scripts\activate
-   
-   # On macOS/Linux
-   source venv/bin/activate
-   ```
+4. **Setup environment variables**
+```bash
+cp .env.example .env
+# Edit .env with your database credentials and configurations
+```
 
-   **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+5. **Setup PostgreSQL database**
+```bash
+# Create database
+createdb smart_attendance
 
-   **Seed the database**
-   ```bash
-   python seed_database.py
-   ```
+# Update DATABASE_URL in .env
+DATABASE_URL=postgresql://postgres:password@localhost/smart_attendance
+```
 
-5. **Run the application**
-   ```bash
-   cd app
-   python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
+6. **Run the application**
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-7. **Access the API**
-   - API Documentation: http://localhost:8000/docs
-   - Alternative Documentation: http://localhost:8000/redoc
-   - Health Check: http://localhost:8000/health
+### Docker Setup
+
+1. **Run with Docker Compose**
+```bash
+docker-compose up --build
+```
+
+This will start:
+- PostgreSQL database on port 5432
+- FastAPI backend on port 8000
+
+## API Documentation
+
+Once running, access the interactive API documentation:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
 ## API Endpoints
 
 ### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - User login
+- `GET /api/auth/profile` - Get user profile
 
-- `POST /auth/register` - Register a new user
-- `POST /auth/login` - Login and get JWT token
-- `GET /auth/profile` - Get current user profile (requires JWT)
+### Attendance
+- `POST /api/attendance/verify` - Verify attendance with base64 image
+- `POST /api/attendance/verify-upload` - Verify attendance with file upload
+- `GET /api/attendance/{student_id}` - Get student attendance records
 
-### Attendance Management
-
-- `POST /attendance/students` - Create a new student (requires JWT)
-- `GET /attendance/students` - Get all students (requires JWT)
-- `POST /attendance/students/{student_id}/register-face` - Register face encoding for student
-- `POST /attendance/students/{student_id}/register-face-upload` - Register face via file upload
-- `POST /attendance/verify` - Verify attendance using face recognition
-- `POST /attendance/verify-upload/{student_id}` - Verify attendance via file upload
-- `GET /attendance/{student_id}` - Get attendance history for student (requires JWT)
+### Admin (Admin only)
+- `POST /api/admin/students` - Create student
+- `GET /api/admin/students` - List all students
+- `DELETE /api/admin/students/{id}` - Delete student
+- `POST /api/admin/students/{id}/face` - Upload student face (base64)
+- `POST /api/admin/students/{id}/face-upload` - Upload student face (file)
+- `POST /api/admin/teachers` - Create teacher
+- `GET /api/admin/teachers` - List all teachers
+- `DELETE /api/admin/teachers/{id}` - Delete teacher
 
 ## Usage Examples
 
-### 1. Register a User
-
+### 1. Register Admin User
 ```bash
-curl -X POST "http://localhost:8000/auth/register" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "Admin User",
-       "email": "admin@example.com",
-       "password": "securepassword123",
-       "role": "admin"
-     }'
+curl -X POST "http://localhost:8000/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "password": "admin123",
+    "role": "admin"
+  }'
 ```
 
 ### 2. Login
-
 ```bash
-curl -X POST "http://localhost:8000/auth/login" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "email": "admin@example.com",
-       "password": "securepassword123"
-     }'
+curl -X POST "http://localhost:8000/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "admin123"
+  }'
 ```
 
-### 3. Create a Student (with JWT token)
-
+### 3. Create Student (Admin only)
 ```bash
-curl -X POST "http://localhost:8000/attendance/students" \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     -d '{
-       "student_id": "STU001",
-       "name": "John Doe",
-       "email": "john.doe@example.com"
-     }'
+curl -X POST "http://localhost:8000/api/admin/students" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_jwt_token>" \
+  -d '{
+    "student_id": "ST001",
+    "name": "John Doe",
+    "email": "john@example.com"
+  }'
 ```
 
-### 4. Register Student Face (file upload)
-
+### 4. Upload Student Face
 ```bash
-curl -X POST "http://localhost:8000/attendance/students/1/register-face-upload" \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     -F "file=@student_photo.jpg"
+# Using file upload
+curl -X POST "http://localhost:8000/api/admin/students/1/face-upload" \
+  -H "Authorization: Bearer <your_jwt_token>" \
+  -F "face_image=@student_photo.jpg"
 ```
 
-### 5. Verify Attendance (file upload)
-
+### 5. Verify Attendance
 ```bash
-curl -X POST "http://localhost:8000/attendance/verify-upload/1" \
-     -F "file=@attendance_photo.jpg"
+# Using file upload
+curl -X POST "http://localhost:8000/api/attendance/verify-upload" \
+  -H "Authorization: Bearer <your_jwt_token>" \
+  -F "student_id=1" \
+  -F "face_image=@attendance_photo.jpg"
 ```
 
-## Database Models
+## Database Schema
 
-### User
-- id, name, email, password_hash, role, created_at, updated_at
-
-### Student
-- id, student_id, name, email, face_encoding, created_at, updated_at
-
-### AttendanceRecord
-- id, student_id, timestamp, status, confidence
-
-## Face Recognition
-
-The system uses the `face_recognition` library which provides:
-- Face detection in images
-- Face encoding extraction (128-dimensional vector)
-- Face comparison with configurable tolerance
-- Confidence scoring for matches
-
-**Recognition Process:**
-1. Extract face encoding from submitted image
-2. Compare with stored student face encoding
-3. Calculate similarity confidence (0.0 - 1.0)
-4. Mark attendance as PRESENT if confidence ≥ 0.6
-
-## Docker Support
-
-### Build Docker Image
-
-```bash
-docker build -t smart-attendance-backend .
+### Users Table
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
+    created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-### Run with Docker
-
-```bash
-docker run -p 8000:8000 --env-file .env smart-attendance-backend
+### Students Table
+```sql
+CREATE TABLE students (
+    id SERIAL PRIMARY KEY,
+    student_id VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    face_encoding BYTEA,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-### Docker Compose (with PostgreSQL)
-
-```yaml
-version: '3.8'
-
-services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: smart_attendance
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/smart_attendance
-    volumes:
-      - .:/app
-
-volumes:
-  postgres_data:
+### Teachers Table
+```sql
+CREATE TABLE teachers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    department VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-## Development
-
-### Run Tests
-
-```bash
-# Install test dependencies
-pip install pytest pytest-asyncio httpx
-
-# Run tests
-pytest
+### Attendance Records Table
+```sql
+CREATE TABLE attendance_records (
+    id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES students(id) ON DELETE CASCADE,
+    timestamp TIMESTAMP DEFAULT NOW(),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('present', 'flagged', 'absent')),
+    confidence FLOAT DEFAULT 0.0
+);
 ```
 
-### Code Formatting
+## Configuration
 
+### Environment Variables
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `SECRET_KEY` - JWT secret key (change in production)
+- `BACKEND_CORS_ORIGINS` - Allowed CORS origins
+- `FACE_RECOGNITION_THRESHOLD` - Face matching threshold (default: 0.6)
+- `MAX_FILE_SIZE` - Maximum file upload size (default: 10MB)
+
+### Face Recognition Settings
+
+- **Threshold**: 0.6 (configurable)
+- **Encoding**: 128-dimensional face embeddings
+- **Storage**: Binary format in PostgreSQL
+- **Supported formats**: JPG, PNG, BMP
+
+## Testing
+
+### Manual Testing with Postman
+
+1. Import the API collection from `/docs`
+2. Set environment variables:
+   - `base_url`: http://localhost:8000
+   - `token`: JWT token from login
+
+### Health Check
 ```bash
-# Install formatting tools
-pip install black isort
-
-# Format code
-black .
-isort .
+curl http://localhost:8000/health
 ```
 
 ## Production Deployment
 
-1. **Security Considerations**
-   - Change JWT_SECRET to a strong, random secret
-   - Use environment variables for sensitive data
-   - Enable HTTPS
-   - Configure CORS origins properly
-   - Use a reverse proxy (nginx)
+### Security Considerations
 
-2. **Database**
-   - Use a managed PostgreSQL service
-   - Set up database backups
-   - Configure connection pooling
+1. **Change default SECRET_KEY**
+2. **Use strong database passwords**
+3. **Enable HTTPS**
+4. **Configure proper CORS origins**
+5. **Set up rate limiting**
+6. **Enable database SSL**
 
-3. **Monitoring**
-   - Add logging
-   - Set up health checks
-   - Monitor performance metrics
+### Performance Optimization
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Face recognition library installation**
-   - Requires cmake and dlib
-   - On Windows: Install Visual Studio Build Tools
-   - On macOS: `brew install cmake`
-   - On Linux: `apt-get install cmake`
-
-2. **Database connection issues**
-   - Verify PostgreSQL is running
-   - Check database credentials in .env
-   - Ensure database exists
-
-3. **Image processing errors**
-   - Ensure images contain clear, front-facing faces
-   - Supported formats: JPEG, PNG
-   - Recommended: well-lit, high-resolution images
-
-## License
-
-MIT License
+1. **Database indexing** (already configured)
+2. **Connection pooling**
+3. **Image compression for uploads**
+4. **Caching for face encodings**
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create feature branch (`git checkout -b feature/new-feature`)
+3. Commit changes (`git commit -am 'Add new feature'`)
+4. Push to branch (`git push origin feature/new-feature`)
+5. Create Pull Request
+
+## License
+
+This project is licensed under the MIT License.
 
 ## Support
 
-For issues and questions, please create an issue in the repository or contact the development team.
+For issues and questions:
+1. Check the [API documentation](http://localhost:8000/docs)
+2. Review the logs for error details
+3. Open an issue on GitHub
+
+---
+
+**Note**: This is a prototype implementation. For production use, implement additional security measures, error handling, and monitoring.

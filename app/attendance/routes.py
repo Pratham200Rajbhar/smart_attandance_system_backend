@@ -1,142 +1,222 @@
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_db
-from auth.routes import get_current_user
-from auth.models import User
-from .schemas import (
-    StudentCreate, 
-    StudentResponse, 
-    StudentWithEncoding,
-    AttendanceVerifyRequest, 
-    AttendanceVerifyResponse,
-    AttendanceHistoryResponse
-)
-from .service import AttendanceService
-import base64
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import List
+import base64
+from datetime import datetime
+
+from app.database import get_db
+from app.models import Student as StudentModel, AttendanceRecord as AttendanceModel
+from app.schemas import AttendanceRecord, AttendanceVerify, ResponseModel
+from app.auth.routes import get_current_user
+from app.utils.face_recognition_utils import (
+    decode_base64_image, 
+    extract_face_encoding, 
+    compare_faces, 
+    decode_face_from_bytes
+)
+from app.core.config import settings
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
-@router.post("/students", response_model=StudentResponse)
-async def create_student(
-    student_data: StudentCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    existing_student = await AttendanceService.get_student_by_student_id(db, student_data.student_id)
-    if existing_student:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Student ID already exists"
-        )
-    
-    student = await AttendanceService.create_student(db, student_data)
-    if not student:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create student"
-        )
-    
-    return student
+async def get_student_by_id(db: AsyncSession, student_id: int):
+    """Get student by ID"""
+    result = await db.execute(select(StudentModel).filter(StudentModel.id == student_id))
+    return result.scalar_one_or_none()
 
-@router.get("/students", response_model=List[StudentWithEncoding])
-async def get_all_students(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    students = await AttendanceService.get_all_students(db)
-    
-    students_with_encoding = []
-    for student in students:
-        student_dict = {
-            "id": student.id,
-            "student_id": student.student_id,
-            "name": student.name,
-            "email": student.email,
-            "created_at": student.created_at,
-            "has_face_encoding": student.face_encoding is not None
-        }
-        students_with_encoding.append(student_dict)
-    
-    return students_with_encoding
-
-@router.post("/students/{student_id}/register-face")
-async def register_student_face(
-    student_id: int,
-    face_image: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    success = await AttendanceService.update_student_face_encoding(db, student_id, face_image)
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to register face. Make sure the image contains a clear face."
-        )
-    
-    return {"message": "Face registered successfully"}
-
-@router.post("/students/{student_id}/register-face-upload")
-async def register_student_face_upload(
-    student_id: int,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    contents = await file.read()
-    
-    face_image_base64 = base64.b64encode(contents).decode('utf-8')
-    
-    success = await AttendanceService.update_student_face_encoding(db, student_id, face_image_base64)
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to register face. Make sure the image contains a clear face."
-        )
-    
-    return {"message": "Face registered successfully"}
-
-@router.post("/verify", response_model=AttendanceVerifyResponse)
+@router.post("/verify", response_model=ResponseModel)
 async def verify_attendance(
-    verify_data: AttendanceVerifyRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    result = await AttendanceService.verify_attendance(db, verify_data)
-    return result
-
-@router.post("/verify-upload/{student_id}")
-async def verify_attendance_upload(
-    student_id: int,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
-):
-    contents = await file.read()
-    
-    face_image_base64 = base64.b64encode(contents).decode('utf-8')
-    
-    verify_data = AttendanceVerifyRequest(
-        student_id=student_id,
-        face_image=face_image_base64
-    )
-    
-    result = await AttendanceService.verify_attendance(db, verify_data)
-    return result
-
-@router.get("/{student_id}", response_model=AttendanceHistoryResponse)
-async def get_student_attendance(
-    student_id: int,
-    limit: int = 50,
+    student_id: int = Form(...),
+    face_image: str = Form(...),  # Base64 encoded image
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
-    result = await AttendanceService.get_student_attendance_history(db, student_id, limit)
+    """Verify student attendance using face recognition"""
     
-    if not result:
+    # Get student record
+    student = await get_student_by_id(db, student_id)
+    if not student:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found"
         )
     
-    return result
+    if not student.face_encoding:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Student face encoding not found. Please register student face first."
+        )
+    
+    try:
+        # Decode and process the uploaded image
+        image_array = decode_base64_image(face_image)
+        current_encoding = extract_face_encoding(image_array)
+        
+        # Get stored face encoding
+        stored_encoding = decode_face_from_bytes(student.face_encoding)
+        
+        # Compare faces
+        is_match, confidence = compare_faces(
+            stored_encoding, 
+            current_encoding, 
+            settings.FACE_RECOGNITION_THRESHOLD
+        )
+        
+        # Determine attendance status
+        attendance_status = "present" if is_match else "flagged"
+        
+        # Create attendance record
+        attendance_record = AttendanceModel(
+            student_id=student_id,
+            status=attendance_status,
+            confidence=confidence,
+            timestamp=datetime.utcnow()
+        )
+        
+        db.add(attendance_record)
+        await db.commit()
+        await db.refresh(attendance_record)
+        
+        return ResponseModel(
+            status="success",
+            message=f"Attendance marked as {attendance_status}",
+            data={
+                "student_id": student_id,
+                "student_name": student.name,
+                "status": attendance_status,
+                "confidence": round(confidence, 2),
+                "timestamp": attendance_record.timestamp.isoformat()
+            }
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing attendance: {str(e)}"
+        )
+
+@router.post("/verify-upload", response_model=ResponseModel)
+async def verify_attendance_upload(
+    student_id: int = Form(...),
+    face_image: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Verify student attendance using uploaded image file"""
+    
+    # Validate file type
+    if not face_image.content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image"
+        )
+    
+    # Check file size
+    content = await face_image.read()
+    if len(content) > settings.MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size too large"
+        )
+    
+    # Convert to base64 and use the existing verify endpoint logic
+    base64_image = base64.b64encode(content).decode('utf-8')
+    
+    # Get student record
+    student = await get_student_by_id(db, student_id)
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+    
+    if not student.face_encoding:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Student face encoding not found. Please register student face first."
+        )
+    
+    try:
+        # Decode and process the uploaded image
+        image_array = decode_base64_image(base64_image)
+        current_encoding = extract_face_encoding(image_array)
+        
+        # Get stored face encoding
+        stored_encoding = decode_face_from_bytes(student.face_encoding)
+        
+        # Compare faces
+        is_match, confidence = compare_faces(
+            stored_encoding, 
+            current_encoding, 
+            settings.FACE_RECOGNITION_THRESHOLD
+        )
+        
+        # Determine attendance status
+        attendance_status = "present" if is_match else "flagged"
+        
+        # Create attendance record
+        attendance_record = AttendanceModel(
+            student_id=student_id,
+            status=attendance_status,
+            confidence=confidence,
+            timestamp=datetime.utcnow()
+        )
+        
+        db.add(attendance_record)
+        await db.commit()
+        await db.refresh(attendance_record)
+        
+        return ResponseModel(
+            status="success",
+            message=f"Attendance marked as {attendance_status}",
+            data={
+                "student_id": student_id,
+                "student_name": student.name,
+                "status": attendance_status,
+                "confidence": round(confidence, 2),
+                "timestamp": attendance_record.timestamp.isoformat()
+            }
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing attendance: {str(e)}"
+        )
+
+@router.get("/{student_id}", response_model=List[AttendanceRecord])
+async def get_student_attendance(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get attendance records for a specific student"""
+    
+    # Verify student exists
+    student = await get_student_by_id(db, student_id)
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+    
+    # Get attendance records
+    result = await db.execute(
+        select(AttendanceModel)
+        .filter(AttendanceModel.student_id == student_id)
+        .order_by(AttendanceModel.timestamp.desc())
+    )
+    
+    attendance_records = result.scalars().all()
+    return [AttendanceRecord.model_validate(record) for record in attendance_records]
