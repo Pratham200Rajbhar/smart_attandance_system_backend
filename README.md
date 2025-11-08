@@ -24,7 +24,7 @@ A comprehensive FastAPI backend for Smart Attendance System with face recognitio
 ✅ **Database Integration**
 - PostgreSQL with async SQLAlchemy
 - Comprehensive data models
-- Database migrations support
+- Automated database setup
 
 ## Tech Stack
 
@@ -35,17 +35,16 @@ A comprehensive FastAPI backend for Smart Attendance System with face recognitio
 - **bcrypt** - Password hashing
 - **face_recognition** - Face detection and recognition
 - **OpenCV** - Image processing
-- **Docker** - Containerization
 
-## Installation
+## Quick Setup
 
 ### Prerequisites
 
-- Python 3.11+
-- PostgreSQL
+- Python 3.10+
+- PostgreSQL 12+
 - Git
 
-### Local Development Setup
+### Installation Steps
 
 1. **Clone the repository**
 ```bash
@@ -65,40 +64,57 @@ pip install -r requirements.txt
 ```
 
 4. **Setup environment variables**
-```bash
-cp .env.example .env
-# Edit .env with your database credentials and configurations
+Edit the `.env` file with your database credentials:
+```env
+DATABASE_URL=postgresql://postgres:password@localhost/smart_attendance
+SECRET_KEY=your-secret-key-here-change-in-production
 ```
 
 5. **Setup PostgreSQL database**
 ```bash
-# Create database
+# Create database (if not exists)
 createdb smart_attendance
 
-# Update DATABASE_URL in .env
-DATABASE_URL=postgresql://postgres:password@localhost/smart_attendance
+# Run the automated setup
+python quick_setup.py
 ```
 
-6. **Run the application**
+6. **Start the application**
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-### Docker Setup
-
-1. **Run with Docker Compose**
-```bash
-docker-compose up --build
-```
-
-This will start:
-- PostgreSQL database on port 5432
-- FastAPI backend on port 8000
 
 ## API Documentation
 
 Once running, access the interactive API documentation:
 - **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## Default Admin User
+
+After running `quick_setup.py`, you can login with:
+- **Email**: `admin@smartattendance.com`
+- **Password**: `admin123`
+
+⚠️ **IMPORTANT**: Change this password immediately after first login!
+
+## Database Management
+
+Use the database manager for maintenance:
+
+```bash
+# List all users
+python db_manager.py list-users
+
+# List students
+python db_manager.py list-students
+
+# Show database info
+python db_manager.py info
+
+# Create new admin user
+python db_manager.py create-admin --name "New Admin" --email "new@admin.com" --password "secure123"
+```
 - **ReDoc**: http://localhost:8000/redoc
 
 ## API Endpoints
@@ -125,37 +141,25 @@ Once running, access the interactive API documentation:
 
 ## Usage Examples
 
-### 1. Register Admin User
-```bash
-curl -X POST "http://localhost:8000/api/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Admin User",
-    "email": "admin@example.com",
-    "password": "admin123",
-    "role": "admin"
-  }'
-```
-
-### 2. Login
+### 1. Login with Default Admin
 ```bash
 curl -X POST "http://localhost:8000/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@example.com",
+    "email": "admin@smartattendance.com",
     "password": "admin123"
   }'
 ```
 
-### 3. Create Student (Admin only)
+### 2. Create Student (Admin only)
 ```bash
 curl -X POST "http://localhost:8000/api/admin/students" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <your_jwt_token>" \
   -d '{
-    "student_id": "ST001",
+    "student_id": "STU001",
     "name": "John Doe",
-    "email": "john@example.com"
+    "email": "john@student.edu"
   }'
 ```
 
