@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.config import settings
 from app.database import Base, engine
 from app.auth.routes import router as auth_router
