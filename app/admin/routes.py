@@ -4,10 +4,11 @@ from sqlalchemy.future import select
 from typing import List
 
 from app.database import get_db
-from app.models import Student, Teacher
+from app.models import Student, Teacher, User
 from app.schemas import Student as StudentSchema, StudentCreate, Teacher as TeacherSchema, TeacherCreate
 from app.auth.routes import get_admin_user
 from app.utils.face_recognition_utils import decode_base64_image, extract_face_encoding, encode_face_to_bytes
+from app.core.security import get_password_hash
 
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -85,10 +86,26 @@ async def add_teacher(
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
     
-    db_teacher = Teacher(**teacher.dict())
+    user_result = await db.execute(select(User).filter(User.email == teacher.email))
+    if user_result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists in users")
+    
+    teacher_data = teacher.dict()
+    password = teacher_data.pop("password")
+    
+    db_teacher = Teacher(**teacher_data)
     db.add(db_teacher)
     await db.commit()
     await db.refresh(db_teacher)
+    
+    db_user = User(
+        name=teacher.name,
+        email=teacher.email,
+        password_hash=get_password_hash(password),
+        role="teacher"
+    )
+    db.add(db_user)
+    await db.commit()
     
     return {"status": "success", "message": "Teacher added successfully", "data": {"teacher_id": db_teacher.id}}
 
@@ -111,6 +128,11 @@ async def delete_teacher(
     teacher = result.scalar_one_or_none()
     if not teacher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
+    
+    user_result = await db.execute(select(User).filter(User.email == teacher.email))
+    user = user_result.scalar_one_or_none()
+    if user:
+        await db.delete(user)
     
     await db.delete(teacher)
     await db.commit()

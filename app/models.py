@@ -27,7 +27,6 @@ class Student(Base):
     face_encoding = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationship with attendance records
     attendance_records = relationship("AttendanceRecord", back_populates="student", cascade="all, delete-orphan")
 
 class Teacher(Base):
@@ -52,5 +51,4 @@ class AttendanceRecord(Base):
         CheckConstraint("status IN ('present', 'flagged', 'absent')", name="check_status"),
     )
     
-    # Relationship with student
     student = relationship("Student", back_populates="attendance_records")

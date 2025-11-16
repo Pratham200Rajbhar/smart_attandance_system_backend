@@ -19,7 +19,6 @@ async def verify_attendance(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get student
     result = await db.execute(select(Student).filter(Student.id == student_id))
     student = result.scalar_one_or_none()
     if not student:
@@ -65,12 +64,10 @@ async def get_attendance_records(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Verify student exists
     student_result = await db.execute(select(Student).filter(Student.id == student_id))
     if not student_result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
     
-    # Get attendance records
     result = await db.execute(
         select(AttendanceRecord)
         .filter(AttendanceRecord.student_id == student_id)

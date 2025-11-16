@@ -42,7 +42,7 @@ class TeacherBase(BaseModel):
     department: Optional[str] = None
 
 class TeacherCreate(TeacherBase):
-    pass
+    password: str
 
 class Teacher(TeacherBase):
     id: int

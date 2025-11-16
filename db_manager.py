@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Database Management Utility
-Provides various database management commands
-"""
-
 import asyncio
 import sys
 import argparse
@@ -18,31 +13,26 @@ from app.models import User, Student, Teacher, AttendanceRecord
 from app.core.security import get_password_hash
 
 async def create_tables():
-    """Create all database tables"""
     from app.database import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("✅ Tables created successfully")
 
 async def drop_tables():
-    """Drop all database tables"""
     from app.database import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     print("✅ Tables dropped successfully")
 
 async def reset_database():
-    """Reset database - drop and recreate all tables"""
     await drop_tables()
     await create_tables()
     print("✅ Database reset successfully")
 
 async def create_admin(name: str, email: str, password: str):
-    """Create a new admin user"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
-        # Check if user exists
         result = await session.execute(select(User).filter(User.email == email))
         if result.scalar_one_or_none():
             print(f"❌ User with email {email} already exists")
@@ -60,7 +50,6 @@ async def create_admin(name: str, email: str, password: str):
         print(f"✅ Admin user created: {name} ({email})")
 
 async def list_users():
-    """List all users"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
@@ -77,7 +66,6 @@ async def list_users():
             print(f"{user.id:<5} {user.name:<25} {user.email:<30} {user.role:<10} {user.created_at.strftime('%Y-%m-%d %H:%M'):<20}")
 
 async def list_students():
-    """List all students"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
@@ -95,7 +83,6 @@ async def list_students():
             print(f"{student.id:<5} {student.student_id:<12} {student.name:<25} {student.email:<30} {face_status:<8} {student.created_at.strftime('%Y-%m-%d %H:%M'):<20}")
 
 async def list_teachers():
-    """List all teachers"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
@@ -113,22 +100,18 @@ async def list_teachers():
             print(f"{teacher.id:<5} {teacher.name:<25} {teacher.email:<30} {dept:<20} {teacher.created_at.strftime('%Y-%m-%d %H:%M'):<20}")
 
 async def attendance_stats():
-    """Show attendance statistics"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
-        # Total records
         total_result = await session.execute(select(func.count(AttendanceRecord.id)))
         total_records = total_result.scalar()
         
-        # Status breakdown
         status_result = await session.execute(
             select(AttendanceRecord.status, func.count(AttendanceRecord.id))
             .group_by(AttendanceRecord.status)
         )
         status_counts = dict(status_result.fetchall())
         
-        # Recent records (last 7 days)
         week_ago = datetime.now() - timedelta(days=7)
         recent_result = await session.execute(
             select(func.count(AttendanceRecord.id))
@@ -136,7 +119,6 @@ async def attendance_stats():
         )
         recent_records = recent_result.scalar()
         
-        # Unique students with attendance
         unique_students_result = await session.execute(
             select(func.count(func.distinct(AttendanceRecord.student_id)))
         )
@@ -153,11 +135,9 @@ async def attendance_stats():
             print(f"  {status.upper()}: {count} ({percentage:.1f}%)")
 
 async def database_info():
-    """Show database connection and table information"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
-        # Table counts
         tables = [
             ("users", User),
             ("students", Student), 
@@ -176,13 +156,11 @@ async def database_info():
             print(f"  {table_name}: {count} records")
 
 async def cleanup_old_attendance(days: int = 365):
-    """Clean up old attendance records"""
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     cutoff_date = datetime.now() - timedelta(days=days)
     
     async with async_session() as session:
-        # Count records to be deleted
         count_result = await session.execute(
             select(func.count(AttendanceRecord.id))
             .filter(AttendanceRecord.timestamp < cutoff_date)
@@ -193,7 +171,6 @@ async def cleanup_old_attendance(days: int = 365):
             print(f"No attendance records older than {days} days found")
             return
         
-        # Confirm deletion
         print(f"Found {count_to_delete} attendance records older than {days} days")
         confirmation = input("Do you want to delete these records? (y/N): ")
         
@@ -201,7 +178,6 @@ async def cleanup_old_attendance(days: int = 365):
             print("Deletion cancelled")
             return
         
-        # Delete old records
         result = await session.execute(
             text("DELETE FROM attendance_records WHERE timestamp < :cutoff_date"),
             {"cutoff_date": cutoff_date}
