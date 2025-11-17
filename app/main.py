@@ -5,12 +5,11 @@ from app.database import Base, engine
 from app.auth.routes import auth_router
 from app.attendance.routes import attendance_router  
 from app.admin.routes import admin_router
-
+from app.teacher.routes import teacher_router
 app = FastAPI(
     title="Smart Attendance System API", 
     version="1.0.0"
 )
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -18,20 +17,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-
 app.include_router(auth_router, prefix="/api")
 app.include_router(attendance_router, prefix="/api") 
 app.include_router(admin_router, prefix="/api")
-
+app.include_router(teacher_router, prefix="/api")
 @app.on_event("startup")
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
 @app.get("/")
 async def root():
     return {"message": "Smart Attendance System API", "status": "running"}
-
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
