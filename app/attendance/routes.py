@@ -22,7 +22,6 @@ async def verify_attendance(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get student with user relationship
     result = await db.execute(
         select(Student)
         .join(User)
@@ -35,13 +34,11 @@ async def verify_attendance(
     if not student.face_encoding:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Student face encoding not registered")
     
-    # Validate session exists
     session_result = await db.execute(select(Session).filter(Session.id == session_id))
     session_obj = session_result.scalar_one_or_none()
     if not session_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     
-    # Process face recognition
     image_array = decode_base64_image(face_image)
     if image_array is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image data")
@@ -50,14 +47,12 @@ async def verify_attendance(
     if face_encoding is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No face found in image")
     
-    # Compare with stored face encoding
     from app.utils.face_recognition_utils import decode_face_from_bytes
     stored_encoding = decode_face_from_bytes(student.face_encoding)
     similarity = compare_faces(stored_encoding, face_encoding)
     
     status_value = "present" if similarity >= settings.FACE_RECOGNITION_THRESHOLD else "flagged"
     
-    # Create attendance record
     today = date.today()
     now = datetime.now().time()
     
@@ -99,7 +94,6 @@ async def get_attendance_records(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Validate student exists
     student_result = await db.execute(select(Student).filter(Student.id == student_id))
     if not student_result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")

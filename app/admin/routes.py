@@ -18,20 +18,17 @@ async def add_student(
     current_user=Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Check if user exists and get email
     user_result = await db.execute(select(User).filter(User.id == student.user_id))
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    # Check if student already exists for this user
     existing_student = await db.execute(
         select(Student).filter(Student.user_id == student.user_id)
     )
     if existing_student.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Student already exists for this user")
     
-    # Check if enrollment number already exists
     enrollment_check = await db.execute(
         select(Student).filter(Student.enrollment_no == student.enrollment_no)
     )
@@ -57,9 +54,7 @@ async def upload_student_photo(
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
     
-    # Decode base64 image and store as photo
     image_array = decode_base64_image(photo)
-    # Store the image bytes directly (you might want to process/resize it)
     from io import BytesIO
     from PIL import Image
     import base64
@@ -68,11 +63,10 @@ async def upload_student_photo(
         photo = photo.split(',', 1)[1]
     
     photo_bytes = base64.b64decode(photo)
-    # Extract face encoding and store it
     face_encoding = extract_face_encoding(image_array)
     if face_encoding is not None:
         student.face_encoding = encode_face_to_bytes(face_encoding)
-    student.photo_path = f"photos/student_{student_id}.jpg"  # Store path instead of bytes
+    student.photo_path = f"photos/student_{student_id}.jpg"
     await db.commit()
     
     return {"status": "success", "message": "Photo uploaded successfully"}
@@ -82,19 +76,17 @@ async def list_students(
     current_user=Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Join Student with User to get full_name
     result = await db.execute(
         select(Student, User.full_name)
         .join(User, Student.user_id == User.id)
     )
     students_with_names = result.all()
-    # Return simple dict representation with full_name
     return [
         {
             "id": s.id,
             "student_id": s.student_id,
             "user_id": s.user_id,
-            "full_name": full_name,  # From User table
+            "full_name": full_name,
             "enrollment_no": s.enrollment_no,
             "department": s.department,
             "semester": s.semester,
@@ -129,13 +121,11 @@ async def add_teacher(
     current_user=Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Check if user exists
     user_result = await db.execute(select(User).filter(User.id == teacher.user_id))
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    # Check if teacher already exists for this user
     existing_teacher = await db.execute(
         select(Teacher).filter(Teacher.user_id == teacher.user_id)
     )
@@ -154,19 +144,17 @@ async def list_teachers(
     current_user=Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Join Teacher with User to get full_name
     result = await db.execute(
         select(Teacher, User.full_name)
         .join(User, Teacher.user_id == User.id)
     )
     teachers_with_names = result.all()
-    # Return simple dict representation with full_name from User table
     return [
         {
             "id": t.id,
             "teacher_id": t.teacher_id,
             "user_id": t.user_id,
-            "full_name": full_name,  # From User table
+            "full_name": full_name,
             "department": t.department,
             "designation": t.designation,
             "specialization": t.specialization,
@@ -188,7 +176,6 @@ async def delete_teacher(
     if not teacher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
     
-    # User will be deleted via CASCADE, so we just delete teacher
     await db.delete(teacher)
     await db.commit()
     
