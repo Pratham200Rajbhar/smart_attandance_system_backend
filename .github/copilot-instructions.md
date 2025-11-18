@@ -1,22 +1,20 @@
-Build a full FastAPI backend for a Smart Attendance System prototype.
+Build a simple FastAPI backend with basic CRUD operations and authentication.
 
 Goal:
-Implement only working core features:
+Implement only essential features:
 1. Authentication (JWT login/register/profile)
-2. Attendance marking using face recognition
-3. Basic admin management (add/list/delete students & teachers)
-4. PostgreSQL database schema for all modules
+2. Basic admin management (add/list/update/delete students & teachers)
+3. PostgreSQL database schema for core modules
+4. Simple manual attendance marking (no face recognition)
 
 Tech Stack:
 - FastAPI (Python 3.10+)
 - PostgreSQL + SQLAlchemy (async)
 - JWT (python-jose)
 - bcrypt for password hashing
-- face_recognition + OpenCV for face matching
-- python-multipart for image uploads
+- python-multipart for form data
 - Pydantic for schemas
 - CORS middleware enabled
-- Docker-ready
 
 ------------------------------------------------------------
 📂 Project Structure:
@@ -24,10 +22,12 @@ backend/
  ├── app/
  │    ├── main.py
  │    ├── auth/
- │    ├── attendance/
  │    ├── admin/
+ │    ├── attendance/
  │    ├── core/
  │    ├── database.py
+ │    ├── models.py
+ │    ├── schemas.py
  │    └── utils/
  └── requirements.txt
 
@@ -45,36 +45,31 @@ Logic:
 - Table: users(id, name, email, password_hash, role, created_at)
 
 ------------------------------------------------------------
-🤖 ATTENDANCE MODULE (FACE RECOGNITION):
-Endpoints:
-- POST /attendance/verify
-    → Accepts user_id + face_image (base64 or multipart)
-    → Convert to embedding using face_recognition
-    → Compare with stored student embedding
-    → If similarity ≥ 0.6 → mark PRESENT
-    → Else FLAGGED
-- GET /attendance/{user_id}
-    → Return attendance records
-
-Tables:
-- students(id, student_id, name, email, face_encoding, created_at)
-- attendance_records(id, student_id, timestamp, status, confidence)
-
-------------------------------------------------------------
-🧩 ADMIN MODULE (BASIC CRUD):
+🏫 ADMIN MODULE (BASIC CRUD):
 Restricted to role="admin" (JWT required)
 
-Endpoints:
+Student Management:
 - POST /admin/students → Add new student
-- GET /admin/students → List students
+- GET /admin/students → List all students
+- GET /admin/students/{id} → Get specific student
+- PUT /admin/students/{id} → Update student
 - DELETE /admin/students/{id} → Delete student
+
+Teacher Management:
 - POST /admin/teachers → Add new teacher
-- GET /admin/teachers → List teachers
+- GET /admin/teachers → List all teachers
+- GET /admin/teachers/{id} → Get specific teacher
+- PUT /admin/teachers/{id} → Update teacher
 - DELETE /admin/teachers/{id} → Delete teacher
 
-Models:
-- Teacher(id, name, email, department, created_at)
-- Student(id, student_id, name, email, face_encoding, created_at)
+Dashboard:
+- GET /admin/dashboard/stats → Basic statistics
+
+------------------------------------------------------------
+📝 ATTENDANCE MODULE (SIMPLE):
+Endpoints:
+- POST /attendance/manual-mark → Manually mark student attendance
+- GET /attendance/students → Get list of students for attendance
 
 ------------------------------------------------------------
 🗄 DATABASE SCHEMA (PostgreSQL):
@@ -93,7 +88,7 @@ CREATE TABLE students (
     student_id VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    face_encoding BYTEA,
+    department VARCHAR(100),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -105,59 +100,50 @@ CREATE TABLE teachers (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE attendance_records (
-    id SERIAL PRIMARY KEY,
-    student_id INT REFERENCES students(id) ON DELETE CASCADE,
-    timestamp TIMESTAMP DEFAULT NOW(),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('present', 'flagged', 'absent')),
-    confidence FLOAT DEFAULT 0.0
-);
-
 ------------------------------------------------------------
 💡 Implementation Notes:
 - Use async SQLAlchemy ORM with `Base.metadata.create_all(engine)`
-- Store face encodings as binary (numpy array → .tobytes())
-- Decode embeddings using np.frombuffer() when comparing
-- Use `face_recognition.face_distance()` for similarity
 - Use `python-dotenv` for DB credentials & JWT secret
-- Add CORS middleware for frontend/mobile integration
-- Return clean JSON responses with `message`, `status`, and `data`
-- Include all routers in main.py
+- Add CORS middleware for frontend integration
+- Return clean JSON responses with `success`, `message`, and `data`
+- Include routers in main.py:
   ```python
-  from app.auth.routes import router as auth_router
-  from app.attendance.routes import router as attendance_router
-  from app.admin.routes import router as admin_router
+  from app.auth.routes import auth_router
+  from app.admin.routes import admin_router
+  from app.attendance.routes import attendance_router
 
-  app.include_router(auth_router)
-  app.include_router(attendance_router)
-  app.include_router(admin_router)
-````
+  app.include_router(auth_router, prefix="/api")
+  app.include_router(admin_router, prefix="/api")
+  app.include_router(attendance_router, prefix="/api")
+  ```
 
 ---
 
 📦 requirements.txt:
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 asyncpg
 bcrypt
 python-jose[cryptography]
 pydantic
-face_recognition
-opencv-python
+pydantic-settings
 python-multipart
 python-dotenv
+passlib
+email-validator
+psycopg2-binary
 
 ---
 
 Expected Output:
-A fully working FastAPI backend prototype with:
+A simple, working FastAPI backend with:
 ✅ JWT-based login/register
-✅ Face recognition attendance marking
-✅ Admin CRUD for students & teachers
+✅ Basic CRUD operations for students & teachers
+✅ Simple manual attendance marking
 ✅ PostgreSQL tables ready
-✅ Modular, extendable code structure
+✅ Clean, modular code structure
+✅ Admin dashboard with basic stats
 ✅ Tested endpoints via Postman or cURL
 
-Keep it clean, modular, and ready for future features like subjects, sessions, and analytics.
-```
+Keep it simple, focused on core CRUD functionality, and ready for future enhancements.
